@@ -1,48 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const resultsDir = path.join(__dirname, '..', '..', 'allure-results');
+const summaryFile = path.join(__dirname, '..', '..', 'test-summary.json');
 const outputFile = path.join(__dirname, '..', '..', 'report-body.html');
 
-function parseAllureResults(dir) {
-  if (!fs.existsSync(dir)) {
-    console.error(`Allure results directory not found: ${dir}`);
-    return { total: 0, passed: 0, failed: 0, skipped: 0, broken: 0, failedTests: [] };
-  }
-
-  const files = fs.readdirSync(dir).filter(f => f.endsWith('-result.json'));
-  let totals = { total: 0, passed: 0, failed: 0, skipped: 0, broken: 0 };
-  const failedTests = [];
-
-  for (const file of files) {
-    const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-    const status = data.status || 'unknown';
-
-    totals.total++;
-    if (status === 'passed') totals.passed++;
-    else if (status === 'failed') {
-      totals.failed++;
-      failedTests.push({
-        name: data.name || 'unknown',
-        message: data.statusDetails?.message || 'No details',
-        trace: data.statusDetails?.trace || '',
-      });
-    }
-    else if (status === 'skipped') totals.skipped++;
-    else if (status === 'broken') totals.broken++;
-  }
-
-  return { ...totals, failedTests };
-}
-
 function generateReport() {
-  const result = parseAllureResults(resultsDir);
+  if (!fs.existsSync(summaryFile)) {
+    console.error('test-summary.json not found');
+    process.exit(1);
+  }
+
+  const result = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
   const status = result.failed > 0 || result.broken > 0 ? '❌ FAILED' : '✅ PASSED';
 
   let failedTestsHtml = '';
-  if (result.failedTests.length > 0) {
+  if (result.failedTests?.length > 0) {
     failedTestsHtml = `
       <h3 style="color:#dc3545;">Failed Tests (${result.failedTests.length})</h3>
       <table style="border-collapse:collapse;width:100%;">
@@ -97,7 +71,7 @@ function generateReport() {
 
   <div class="footer">
     <p>
-      📎 <strong>HTML Report:</strong> Download via the link above or from the run page artifacts.<br>
+      📎 <strong>HTML Report:</strong> Download from the run page artifacts section above.<br>
     </p>
     <p>Triggered by: ${process.env.GITHUB_ACTOR || 'unknown'} &nbsp;|&nbsp; Branch: ${process.env.GITHUB_REF_NAME || 'unknown'}</p>
   </div>
