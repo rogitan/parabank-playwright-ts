@@ -16,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    strategy:
+      matrix:
+        project: [UI, API]
+      fail-fast: false
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +36,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run Playwright tests
-        run: npx playwright test --project=UI
+        run: npx playwright test --project=${{ matrix.project }}
         env:
           BASE_URL: ${{ secrets.BASE_URL || 'https://parabank.parasoft.com' }}
 
@@ -39,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: reports/html/
           retention-days: 14
 
@@ -51,7 +56,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-summary
+          name: test-summary-${{ matrix.project }}
           path: test-summary.json
           retention-days: 1
 
@@ -68,12 +73,17 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download test summary
+      - name: Download test summaries
         uses: actions/download-artifact@v4
         with:
-          name: test-summary
+          pattern: test-summary-*
+          path: summaries
+          merge-multiple: true
 
-      - name: Generate test summary
+      - name: Merge summaries
+        run: node .github/workflows/merge-summaries.js
+
+      - name: Generate email report
         id: summary
         run: node .github/workflows/generate-report.js
         env:
