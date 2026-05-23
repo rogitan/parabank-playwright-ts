@@ -43,17 +43,50 @@ jobs:
           path: reports/html/
           retention-days: 14
 
-      - name: Generate email report
-        id: summary
+      - name: Upload Allure results (for email report)
+        uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: allure-results
+          path: allure-results/
+          retention-days: 1
+
+  send-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: e2e-tests
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Get HTML report download URL
+        id: artifact_url
+        run: |
+          URL=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+            --jq '.artifacts[] | select(.name=="playwright-report") | .archive_download_url')
+          echo "report_url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Generate test summary
+        id: summary
         run: node .github/workflows/generate-report.js
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          REPORT_DOWNLOAD_URL: ${{ steps.artifact_url.outputs.report_url }}
 
       - name: Check SMTP secrets
         id: smtp_check
-        if: always()
         run: |
           if [ -n "${{ secrets.MAIL_USERNAME }}" ] && [ -n "${{ secrets.MAIL_PASSWORD }}" ]; then
             echo "configured=true" >> $GITHUB_OUTPUT
