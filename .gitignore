@@ -13,4 +13,5 @@ dist/
 .playwright-cli/
 allure-history.jsonl
 *.code-workspace
+AI_CONTEXT.md
 
