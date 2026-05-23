@@ -48,14 +48,6 @@ jobs:
           path: reports/html/
           retention-days: 14
 
-      - name: Upload JUnit results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: junit-results-${{ matrix.project }}
-          path: reports/junit/results.xml
-          retention-days: 14
-
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
         if: always()
@@ -85,11 +77,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download all JUnit results
+      - name: Download all Allure results
         uses: actions/download-artifact@v4
         with:
-          pattern: junit-results-*
-          path: junit-results
+          pattern: allure-results-*
+          path: allure-results
           merge-multiple: true
 
       - name: Generate test summary

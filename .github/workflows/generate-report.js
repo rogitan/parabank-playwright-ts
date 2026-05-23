@@ -1,61 +1,56 @@
 const fs = require('fs');
 const path = require('path');
 
-const resultsDir = path.join(__dirname, '..', '..', 'junit-results');
+const resultsDir = path.join(__dirname, '..', '..', 'allure-results');
 const outputFile = path.join(__dirname, '..', '..', 'report-body.html');
 
-function parseJUnit(filePath) {
-  const xml = fs.readFileSync(filePath, 'utf8');
-  const total = parseInt(xml.match(/tests="(\d+)"/)?.[1] || 0);
-  const failed = parseInt(xml.match(/failures="(\d+)"/)?.[1] || 0);
-  const skipped = parseInt(xml.match(/skipped="(\d+)"/)?.[1] || 0);
-  const passed = total - failed - skipped;
-
-  const testCases = [];
-  const testCaseRegex = /<testcase[\s\S]*?<\/testcase>/g;
-  let match;
-  while ((match = testCaseRegex.exec(xml)) !== null) {
-    const name = match[0].match(/name="([^"]+)"/)?.[1] || 'unknown';
-    const hasFailure = /<failure/.test(match[0]);
-    const hasError = /<error/.test(match[0]);
-    if (hasFailure || hasError) {
-      const message = match[0].match(/message="([^"]+)"/)?.[1] || 'No details';
-      testCases.push({ name, status: 'FAILED', message });
-    } else {
-      testCases.push({ name, status: 'PASSED', message: '' });
-    }
+function parseAllureResults(dir) {
+  if (!fs.existsSync(dir)) {
+    console.error(`Allure results directory not found: ${dir}`);
+    return { total: 0, passed: 0, failed: 0, skipped: 0, broken: 0, failedTests: [] };
   }
 
-  return { total, passed, failed, skipped, testCases };
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('-result.json'));
+  let totals = { total: 0, passed: 0, failed: 0, skipped: 0, broken: 0 };
+  const failedTests = [];
+
+  for (const file of files) {
+    const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    const status = data.status || 'unknown';
+
+    totals.total++;
+    if (status === 'passed') totals.passed++;
+    else if (status === 'failed') {
+      totals.failed++;
+      failedTests.push({
+        name: data.name || 'unknown',
+        message: data.statusDetails?.message || 'No details',
+        trace: data.statusDetails?.trace || '',
+      });
+    }
+    else if (status === 'skipped') totals.skipped++;
+    else if (status === 'broken') totals.broken++;
+  }
+
+  return { ...totals, failedTests };
 }
 
 function generateReport() {
-  const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.xml'));
-  let totals = { total: 0, passed: 0, failed: 0, skipped: 0 };
-  const allFailedTests = [];
-
-  for (const file of files) {
-    const result = parseJUnit(path.join(resultsDir, file));
-    totals.total += result.total;
-    totals.passed += result.passed;
-    totals.failed += result.failed;
-    totals.skipped += result.skipped;
-    allFailedTests.push(...result.testCases.filter(t => t.status === 'FAILED'));
-  }
+  const result = parseAllureResults(resultsDir);
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-  const status = totals.failed > 0 ? '❌ FAILED' : '✅ PASSED';
+  const status = result.failed > 0 || result.broken > 0 ? '❌ FAILED' : '✅ PASSED';
 
   let failedTestsHtml = '';
-  if (allFailedTests.length > 0) {
+  if (result.failedTests.length > 0) {
     failedTestsHtml = `
-      <h3 style="color:#dc3545;">Failed Tests (${allFailedTests.length})</h3>
+      <h3 style="color:#dc3545;">Failed Tests (${result.failedTests.length})</h3>
       <table style="border-collapse:collapse;width:100%;">
         <tr style="background:#f8d7da;">
           <th style="padding:8px;border:1px solid #ddd;text-align:left;">Test</th>
           <th style="padding:8px;border:1px solid #ddd;text-align:left;">Error</th>
         </tr>
-        ${allFailedTests.map(t => `
+        ${result.failedTests.map(t => `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;">${escapeHtml(t.name)}</td>
             <td style="padding:8px;border:1px solid #ddd;color:#dc3545;font-size:13px;">${escapeHtml(t.message)}</td>
@@ -76,22 +71,24 @@ function generateReport() {
     .stat.total { background: #e9ecef; }
     .stat.passed { background: #d4edda; color: #155724; }
     .stat.failed { background: #f8d7da; color: #721c24; }
+    .stat.broken { background: #f8d7da; color: #721c24; }
     .stat.skipped { background: #fff3cd; color: #856404; }
     a { color: #007bff; }
     .footer { margin-top: 24px; font-size: 13px; color: #6c757d; }
   </style>
 </head>
 <body>
-  <h1>${status} — Parabank Test Report</h1>
+  <h1>${status} — Parabank E2E Test Report</h1>
   <p>
     <a href="${runUrl}" style="font-size:14px;">View full run on GitHub →</a>
   </p>
 
   <div class="summary">
-    <div class="stat total">Total: ${totals.total}</div>
-    <div class="stat passed">Passed: ${totals.passed}</div>
-    <div class="stat failed">Failed: ${totals.failed}</div>
-    <div class="stat skipped">Skipped: ${totals.skipped}</div>
+    <div class="stat total">Total: ${result.total}</div>
+    <div class="stat passed">Passed: ${result.passed}</div>
+    <div class="stat failed">Failed: ${result.failed}</div>
+    <div class="stat broken">Broken: ${result.broken}</div>
+    <div class="stat skipped">Skipped: ${result.skipped}</div>
   </div>
 
   <p><strong>Retries:</strong> Up to 2 retries per test on CI.</p>
@@ -101,9 +98,9 @@ function generateReport() {
   <div class="footer">
     <p>
       📎 <strong>Artifacts (downloadable from run page above):</strong><br>
-      • HTML report — Full test report with detailed results<br>
+      • Allure report — Full Allure test report with charts & trends<br>
       • Screenshots & traces — Captured for failed tests<br>
-      • Allure results — For Allure report generation<br>
+      • HTML report — Playwright HTML report<br>
     </p>
     <p>Triggered by: ${process.env.GITHUB_ACTOR || 'unknown'} &nbsp;|&nbsp; Branch: ${process.env.GITHUB_REF_NAME || 'unknown'}</p>
   </div>
@@ -112,15 +109,15 @@ function generateReport() {
 
   fs.writeFileSync(outputFile, html);
   console.log(`Status: ${status}`);
-  console.log(`Total: ${totals.total}, Passed: ${totals.passed}, Failed: ${totals.failed}, Skipped: ${totals.skipped}`);
+  console.log(`Total: ${result.total}, Passed: ${result.passed}, Failed: ${result.failed}, Broken: ${result.broken}, Skipped: ${result.skipped}`);
 
   const output = process.env.GITHUB_OUTPUT;
   if (output) {
     fs.appendFileSync(output, `status=${status}\n`);
-    fs.appendFileSync(output, `total=${totals.total}\n`);
-    fs.appendFileSync(output, `passed=${totals.passed}\n`);
-    fs.appendFileSync(output, `failed=${totals.failed}\n`);
-    fs.appendFileSync(output, `skipped=${totals.skipped}\n`);
+    fs.appendFileSync(output, `total=${result.total}\n`);
+    fs.appendFileSync(output, `passed=${result.passed}\n`);
+    fs.appendFileSync(output, `failed=${result.failed}\n`);
+    fs.appendFileSync(output, `skipped=${result.skipped}\n`);
   }
 }
 
