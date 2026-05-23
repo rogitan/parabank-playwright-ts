@@ -39,6 +39,7 @@ function generateReport() {
   const result = parseAllureResults(resultsDir);
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+  const reportUrl = process.env.REPORT_DOWNLOAD_URL || runUrl;
   const status = result.failed > 0 || result.broken > 0 ? '❌ FAILED' : '✅ PASSED';
 
   let failedTestsHtml = '';
@@ -80,7 +81,8 @@ function generateReport() {
 <body>
   <h1>${status} — Parabank E2E Test Report</h1>
   <p>
-    <a href="${runUrl}" style="font-size:14px;">View full run on GitHub →</a>
+    <a href="${runUrl}" style="font-size:14px;">View full run on GitHub →</a><br>
+    <a href="${reportUrl}" style="font-size:14px;">📄 Download HTML Test Report →</a>
   </p>
 
   <div class="summary">
@@ -97,10 +99,7 @@ function generateReport() {
 
   <div class="footer">
     <p>
-      📎 <strong>Artifacts (downloadable from run page above):</strong><br>
-      • Allure report — Full Allure test report with charts & trends<br>
-      • Screenshots & traces — Captured for failed tests<br>
-      • HTML report — Playwright HTML report<br>
+      📎 <strong>HTML Report:</strong> Download via the link above or from the run page artifacts.<br>
     </p>
     <p>Triggered by: ${process.env.GITHUB_ACTOR || 'unknown'} &nbsp;|&nbsp; Branch: ${process.env.GITHUB_REF_NAME || 'unknown'}</p>
   </div>
