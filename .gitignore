@@ -11,4 +11,6 @@ dist/
 .mdFiles
 .vscode/
 .playwright-cli/
+allure-history.jsonl
+*.code-workspace
 
