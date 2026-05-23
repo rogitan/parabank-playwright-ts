@@ -16,11 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    strategy:
-      matrix:
-        project: [UI]
-      fail-fast: false
-
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +31,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run Playwright tests
-        run: npx playwright test --project=${{ matrix.project }}
+        run: npx playwright test --project=UI
         env:
           BASE_URL: ${{ secrets.BASE_URL || 'https://parabank.parasoft.com' }}
 
@@ -44,48 +39,13 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-${{ matrix.project }}
+          name: playwright-report
           path: reports/html/
           retention-days: 14
 
-      - name: Upload Allure results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results-${{ matrix.project }}
-          path: allure-results/
-          retention-days: 7
-
-      - name: Upload test traces & screenshots
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-failure-artifacts-${{ matrix.project }}
-          path: test-results/
-          retention-days: 7
-
-  send-report:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: e2e-tests
-    if: always()
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Download all Allure results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: allure-results-*
-          path: allure-results
-          merge-multiple: true
-
-      - name: Generate test summary
+      - name: Generate email report
         id: summary
+        if: always()
         run: node .github/workflows/generate-report.js
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -93,6 +53,7 @@ jobs:
 
       - name: Check SMTP secrets
         id: smtp_check
+        if: always()
         run: |
           if [ -n "${{ secrets.MAIL_USERNAME }}" ] && [ -n "${{ secrets.MAIL_PASSWORD }}" ]; then
             echo "configured=true" >> $GITHUB_OUTPUT
