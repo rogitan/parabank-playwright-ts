@@ -39,7 +39,6 @@ function generateReport() {
   const result = parseAllureResults(resultsDir);
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-  const artifactsUrl = `${runUrl}#artifacts`;
   const status = result.failed > 0 || result.broken > 0 ? '❌ FAILED' : '✅ PASSED';
 
   let failedTestsHtml = '';
@@ -81,8 +80,7 @@ function generateReport() {
 <body>
   <h1>${status} — Parabank E2E Test Report</h1>
   <p>
-    <a href="${runUrl}" style="font-size:14px;">View full run on GitHub →</a><br>
-    <a href="${artifactsUrl}" style="font-size:14px;">📄 Download HTML Test Report (Artifacts) →</a>
+    <a href="${runUrl}" style="font-size:14px;">View full run on GitHub →</a>
   </p>
 
   <div class="summary">
