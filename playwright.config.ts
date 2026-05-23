@@ -12,7 +12,6 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 3,
   reporter: [
     ['html', { outputFolder: 'reports/html' }],
-    ['junit', { outputFile: 'reports/junit/results.xml' }],
     [
       'allure-playwright',
       {
@@ -43,13 +42,6 @@ export default defineConfig({
         headless: !process.env.PWDEBUG,
       },
     },
-    {
-      name: 'API',
-      testDir: './tests/api',
-      use: {
-        browserName: 'chromium',
-        headless: !process.env.PWDEBUG,
-      },
-    },
+
   ],
 });
