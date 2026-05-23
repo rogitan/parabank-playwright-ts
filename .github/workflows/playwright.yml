@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-tests:
+  ui-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -30,7 +30,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Run Playwright tests
+      - name: Run UI tests
         run: npx playwright test --project=UI
         env:
           BASE_URL: ${{ secrets.BASE_URL || 'https://parabank.parasoft.com' }}
@@ -39,26 +39,87 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-UI
+          path: reports/html/
+          retention-days: 14
+
+      - name: Upload shared data (for API tests)
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-data
+          path: shared-data/
+          retention-days: 1
+
+      - name: Generate test summary
+        if: always()
+        run: node .github/workflows/generate-summary.js
+        env:
+          PROJECT: UI
+
+      - name: Upload test summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-summary-UI
+          path: test-summary.json
+          retention-days: 1
+
+  api-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ui-tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Download shared data from UI tests
+        uses: actions/download-artifact@v4
+        with:
+          name: shared-data
+          path: shared-data
+
+      - name: Run API tests
+        run: npx playwright test --project=API
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'https://parabank.parasoft.com' }}
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-API
           path: reports/html/
           retention-days: 14
 
       - name: Generate test summary
         if: always()
         run: node .github/workflows/generate-summary.js
+        env:
+          PROJECT: API
 
-      - name: Upload test summary (for email report)
+      - name: Upload test summary
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-summary
+          name: test-summary-API
           path: test-summary.json
           retention-days: 1
 
   send-report:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: e2e-tests
+    needs: [ui-tests, api-tests]
     if: always()
 
     steps:
@@ -68,12 +129,17 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download test summary
+      - name: Download test summaries
         uses: actions/download-artifact@v4
         with:
-          name: test-summary
+          pattern: test-summary-*
+          path: summaries
+          merge-multiple: true
 
-      - name: Generate test summary
+      - name: Merge summaries
+        run: node .github/workflows/merge-summaries.js
+
+      - name: Generate email report
         id: summary
         run: node .github/workflows/generate-report.js
         env:

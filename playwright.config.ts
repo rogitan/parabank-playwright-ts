@@ -42,6 +42,14 @@ export default defineConfig({
         headless: !process.env.PWDEBUG,
       },
     },
+    {
+      name: 'API',
+      testDir: './tests/api',
+      use: {
+        browserName: 'chromium',
+        headless: !process.env.PWDEBUG,
+      },
+    },
 
   ],
 });
