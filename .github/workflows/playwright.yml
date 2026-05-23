@@ -43,12 +43,16 @@ jobs:
           path: reports/html/
           retention-days: 14
 
-      - name: Upload Allure results (for email report)
+      - name: Generate test summary
+        if: always()
+        run: node .github/workflows/generate-summary.js
+
+      - name: Upload test summary (for email report)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-results
-          path: allure-results/
+          name: test-summary
+          path: test-summary.json
           retention-days: 1
 
   send-report:
@@ -64,11 +68,10 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download Allure results
+      - name: Download test summary
         uses: actions/download-artifact@v4
         with:
-          name: allure-results
-          path: allure-results
+          name: test-summary
 
       - name: Generate test summary
         id: summary
@@ -76,7 +79,6 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          REPORT_DOWNLOAD_URL: ${{ steps.artifact_url.outputs.report_url }}
 
       - name: Check SMTP secrets
         id: smtp_check
