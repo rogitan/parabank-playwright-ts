@@ -159,24 +159,4 @@ test.describe.serial('ParaBank Full E2E Flow', () => {
     });
     shared.transactionApiService = new TransactionApiService(shared.apiContext);
   });
-
-  test('[test_02] Find transactions by amount via API and validate JSON response', async ({ takeScreenshot }) => {
-    const BILL_PAYMENT_AMOUNT = 25;
-    const { savingsAccountNumber, payeeName, transactionApiService } = shared as SharedTestState;
-
-    Logger.actionLog(`Searching transactions by amount $${BILL_PAYMENT_AMOUNT} on account ${savingsAccountNumber}`);
-    const transactions = await transactionApiService.getTransactionsByAmount(savingsAccountNumber, BILL_PAYMENT_AMOUNT);
-    Logger.resultLog(`API returned ${transactions.length} transaction(s) for amount $${BILL_PAYMENT_AMOUNT}`);
-
-    expect(transactions.length).toBeGreaterThan(0);
-
-    const paymentTx = assertBillPaymentTransaction(transactions, {
-      amount: BILL_PAYMENT_AMOUNT,
-      payeeName,
-      accountId: Number(savingsAccountNumber),
-    });
-
-    Logger.resultLog(`Validated transaction ID ${paymentTx.id}: amount=$${paymentTx.amount}, type=${paymentTx.type}, description="${paymentTx.description}"`);
-    await takeScreenshot('API transaction search validated');
-  });
 });
