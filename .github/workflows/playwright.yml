@@ -70,15 +70,6 @@ jobs:
           name: allure-results
           path: allure-results
 
-      - name: Get HTML report download URL
-        id: artifact_url
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          URL=$(gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
-            --jq '.artifacts[] | select(.name=="playwright-report") | .archive_download_url')
-          echo "report_url=$URL" >> $GITHUB_OUTPUT
-
       - name: Generate test summary
         id: summary
         run: node .github/workflows/generate-report.js
