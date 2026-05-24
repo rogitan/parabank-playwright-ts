@@ -1,11 +1,10 @@
-import { test, expect } from '../../playwright/fixtures';
 import type { APIRequestContext } from '@playwright/test';
+import { expect, test } from '../../playwright/fixtures';
+import { API_BASE_URL } from '../../src/constants/api.constants';
+import { assertBillPaymentTransaction } from '../../src/helpers/transactionAssertions';
+import { TransactionApiService } from '../../src/services/TransactionApiService';
 import { DataGenerator } from '../../src/utils/DataGenerator';
 import { Logger } from '../../src/utils/Logger';
-import { Transaction } from '../../src/types/transaction.types';
-import { API_BASE_URL } from '../../src/constants/api.constants';
-import { TransactionApiService } from '../../src/services/TransactionApiService';
-import { assertBillPaymentTransaction } from '../../src/helpers/transactionAssertions';
 
 interface SharedTestState {
   savingsAccountNumber: string;
@@ -136,15 +135,15 @@ test.describe.serial('ParaBank Full E2E Flow', () => {
     await takeScreenshot('Bill payment complete');
 
     // Save shared state for test_02
-    const storage = await page.context().storageState();                          // Capture the browser's cookies and localStorage (the logged-in session)
-    shared.savingsAccountNumber = savingsAccountNumber;                           // Store the newly created savings account number for test_02
-    shared.payeeName = payee.name;                                                // Store the bill payee name for test_02
-    shared.apiContext = await playwright.request.newContext({                     // Create an isolated API client…
-      baseURL: API_BASE_URL,                                                      // …that points to the ParaBank REST API base URL…
-      storageState: storage,                                                      // …and reuses the browser's auth session so the API calls are authenticated
-      extraHTTPHeaders: { 'Accept': 'application/json' },                         // Request JSON responses instead of the default XML
+    const storage = await page.context().storageState();
+    shared.savingsAccountNumber = savingsAccountNumber;
+    shared.payeeName = payee.name;
+    shared.apiContext = await playwright.request.newContext({
+      baseURL: API_BASE_URL,
+      storageState: storage,
+      extraHTTPHeaders: { 'Accept': 'application/json' },
     });
-    shared.transactionApiService = new TransactionApiService(shared.apiContext);  // Wrap the API client in a typed service for transaction endpoints
+    shared.transactionApiService = new TransactionApiService(shared.apiContext);
   });
 
   test('[test_02] Find transactions by amount via API and validate JSON response', async ({ takeScreenshot }) => {
